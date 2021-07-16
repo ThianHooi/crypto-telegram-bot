@@ -1,6 +1,7 @@
 const httpError = require("http-errors");
 const TelegramBot = require("node-telegram-bot-api");
 const axios = require("axios");
+const fs = require("fs");
 const { ChartJSNodeCanvas } = require("chartjs-node-canvas");
 
 require("dotenv").config();
@@ -83,14 +84,34 @@ bot.onText(/\/joke$/i, async (msg, match) => {
   });
 });
 
+bot.onText(/\/crypto (.+)/, async (msg, match) => {
+  const chatId = msg.chat.id;
+  const resp = match[1];
+
+  await getCryptoCoin(resp? resp : "BTC")
+    .then(async (cryptoDetails) => {
+      const messageBody = await generateCryptoMessage(cryptoDetails);
+
+      bot.sendPhoto(chatId, messageBody.image, {
+        caption: `${messageBody.text}`,
+        parse_mode: "HTML",
+      });
+    })
+    .catch((err) => {
+      console.log(err);
+      bot.sendMessage(chatId, "Something went wrong. Try again later.");
+    });
+});
+
 bot.onText(/\/bitcoin$/i, async (msg, match) => {
   const chatId = msg.chat.id;
 
   await getCryptoCoin("BTC")
-    .then((cryptoDetails) => {
-      const messageBody = generateCryptoMessage(cryptoDetails);
+    .then(async (cryptoDetails) => {
+      const messageBody = await generateCryptoMessage(cryptoDetails);
 
-      bot.sendMessage(chatId, messageBody.text, {
+      bot.sendPhoto(chatId, messageBody.image, {
+        caption: `${messageBody.text}`,
         parse_mode: "HTML",
       });
     })
@@ -105,17 +126,12 @@ bot.onText(/\/ethereum$/i, async (msg, match) => {
 
   await getCryptoCoin("ETH")
     .then(async (cryptoDetails) => {
-      const messageBody = generateCryptoMessage(cryptoDetails);
-      const graphImg = await generateGraph(cryptoDetails.data[0].timeSeries);
+      const messageBody = await generateCryptoMessage(cryptoDetails);
 
-      bot.sendPhoto(chatId, graphImg, {
+      bot.sendPhoto(chatId, messageBody.image, {
         caption: `${messageBody.text}`,
         parse_mode: "HTML",
       });
-
-      // bot.sendMessage(chatId, messageBody.text, {
-      //   parse_mode: "HTML",
-      // });
     })
     .catch((err) => {
       console.log(err);
@@ -206,7 +222,7 @@ const getCryptoCoin = async (coinSymbol) => {
   }
 };
 
-const generateCryptoMessage = (cryptoDetails) => {
+const generateCryptoMessage = async (cryptoDetails) => {
   const coinDetails = cryptoDetails.data[0];
   const {
     name,
@@ -217,9 +233,7 @@ const generateCryptoMessage = (cryptoDetails) => {
     timeSeries,
   } = coinDetails;
 
-  console.log("====================================");
-  console.log(timeSeries.length);
-  console.log("====================================");
+  const graph = await generateGraph(timeSeries);
 
   return {
     text: `<b>${name} (${symbol})</b>
@@ -231,6 +245,7 @@ const generateCryptoMessage = (cryptoDetails) => {
       percent_change_30d > 0 ? "⬆️" : "⬇️"
     }
     `,
+    image: graph,
   };
 };
 
@@ -268,6 +283,7 @@ const generateGraph = async (timeSeries) => {
           label: "Price over 24 Hours",
           data: past24hrsPrice,
           borderWidth: 1,
+          borderColor: "#552583",
         },
       ],
       options: {
@@ -278,6 +294,11 @@ const generateGraph = async (timeSeries) => {
   };
 
   const image = await chartJSNodeCanvas.renderToBuffer(configuration);
+
+  fs.writeFile("img.png", image, (err) => {
+    if (err) return console.error(err);
+    console.log("file saved to ", "img.png");
+  });
   // const dataUrl = await chartJSNodeCanvas.renderToDataURL(configuration);
 
   return image;
