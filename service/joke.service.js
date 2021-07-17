@@ -1,5 +1,9 @@
 const axios = require("axios");
 
+/**
+ * Get and generate a randome joke
+ * @returns {String} A joke string with setup and punchline
+ */
 const getRandomJoke = async () => {
   try {
     const fullJoke = await axios
@@ -12,9 +16,6 @@ const getRandomJoke = async () => {
 
     return fullJoke;
   } catch (error) {
-    console.log("====================================");
-    console.log(error);
-    console.log("====================================");
     throw Error("Something went wrong");
   }
 };
