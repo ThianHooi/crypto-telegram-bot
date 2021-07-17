@@ -1,14 +1,15 @@
 const httpError = require("http-errors");
 const TelegramBot = require("node-telegram-bot-api");
-const axios = require("axios");
-const fs = require("fs");
-const { ChartJSNodeCanvas } = require("chartjs-node-canvas");
+
+const {
+  jokeService,
+  cryptoService,
+  rickAndMortyService,
+} = require("../service/index");
 
 require("dotenv").config();
 
-const { TELEGRAM_BOT_TOKEN: telegramToken, LUNARCRUSH_API: lunaApiKey } =
-  process.env;
-// const token = process.env.TELEGRAM_BOT_TOKEN;
+const { TELEGRAM_BOT_TOKEN: telegramToken } = process.env;
 
 // Create a bot that uses 'polling' to fetch new updates
 const bot = new TelegramBot(telegramToken, { polling: true });
@@ -33,9 +34,11 @@ bot.onText(/\/rickAndMorty (.+)/i, async (msg, match) => {
     return;
   }
 
-  await getRickAndMortyChar(characterId)
+  await rickAndMortyService
+    .getRickAndMortyChar(characterId)
     .then((characterDetails) => {
-      const messageBody = generateRickAndMortyMsg(characterDetails);
+      const messageBody =
+        rickAndMortyService.generateRickAndMortyMsg(characterDetails);
 
       bot.sendPhoto(chatId, messageBody.image, {
         caption: `${messageBody.text}`,
@@ -50,9 +53,11 @@ bot.onText(/\/rickAndMorty (.+)/i, async (msg, match) => {
 bot.onText(/\/rickAndMorty$/i, async (msg, match) => {
   const chatId = msg.chat.id;
 
-  await getRickAndMortyChar()
+  await rickAndMortyService
+    .getRickAndMortyChar()
     .then((characterDetails) => {
-      const messageBody = generateRickAndMortyMsg(characterDetails);
+      const messageBody =
+        rickAndMortyService.generateRickAndMortyMsg(characterDetails);
 
       bot.sendPhoto(chatId, messageBody.image, {
         caption: `${messageBody.text}`,
@@ -66,9 +71,10 @@ bot.onText(/\/rickAndMorty$/i, async (msg, match) => {
 
 bot.onText(/\/joke$/i, async (msg, match) => {
   const chatId = msg.chat.id;
-  const fullJoke = await getRandomJoke().catch(
-    (err) => "Something went wrong. Try again later."
-  );
+  const fullJoke = await jokeService.getRandomJoke().catch((err) => {
+    console.log(err);
+    return "Something went wrong. Try again later.";
+  });
 
   bot.sendMessage(chatId, fullJoke, {
     reply_markup: {
@@ -88,9 +94,12 @@ bot.onText(/\/crypto (.+)/, async (msg, match) => {
   const chatId = msg.chat.id;
   const resp = match[1];
 
-  await getCryptoCoin(resp? resp : "BTC")
+  await cryptoService
+    .getCryptoCoin(resp ? resp : "BTC")
     .then(async (cryptoDetails) => {
-      const messageBody = await generateCryptoMessage(cryptoDetails);
+      const messageBody = await cryptoService.generateCryptoMessage(
+        cryptoDetails
+      );
 
       bot.sendPhoto(chatId, messageBody.image, {
         caption: `${messageBody.text}`,
@@ -106,9 +115,12 @@ bot.onText(/\/crypto (.+)/, async (msg, match) => {
 bot.onText(/\/bitcoin$/i, async (msg, match) => {
   const chatId = msg.chat.id;
 
-  await getCryptoCoin("BTC")
+  await cryptoService
+    .getCryptoCoin("BTC")
     .then(async (cryptoDetails) => {
-      const messageBody = await generateCryptoMessage(cryptoDetails);
+      const messageBody = await cryptoService.generateCryptoMessage(
+        cryptoDetails
+      );
 
       bot.sendPhoto(chatId, messageBody.image, {
         caption: `${messageBody.text}`,
@@ -124,9 +136,12 @@ bot.onText(/\/bitcoin$/i, async (msg, match) => {
 bot.onText(/\/ethereum$/i, async (msg, match) => {
   const chatId = msg.chat.id;
 
-  await getCryptoCoin("ETH")
+  await cryptoService
+    .getCryptoCoin("ETH")
     .then(async (cryptoDetails) => {
-      const messageBody = await generateCryptoMessage(cryptoDetails);
+      const messageBody = await cryptoService.generateCryptoMessage(
+        cryptoDetails
+      );
 
       bot.sendPhoto(chatId, messageBody.image, {
         caption: `${messageBody.text}`,
@@ -148,9 +163,9 @@ bot.on("callback_query", async (callbackQuery) => {
   const chatId = message.chat.id;
 
   if (command === "/joke") {
-    const fullJoke = await getRandomJoke().catch(
-      (err) => "Something went wrong. Try again later."
-    );
+    const fullJoke = await jokeService
+      .getRandomJoke()
+      .catch((err) => "Something went wrong. Try again later.");
 
     bot.answerCallbackQuery(callbackQuery.id, {
       text: "Here goes another one",
@@ -160,149 +175,6 @@ bot.on("callback_query", async (callbackQuery) => {
     bot.sendMessage(chatId, fullJoke);
   }
 });
-
-const generateRickAndMortyMsg = (characterDetails) => {
-  const { image, name, species, status, gender, origin } = characterDetails;
-
-  return {
-    text: `This is  <b>${name}</b>.  
-    \n Gender: ${gender} 
-    \n Status: ${status} 
-    \n Origin: ${origin.name}
-    \n Species: ${species}
-    `,
-    image,
-  };
-};
-
-const getRickAndMortyChar = async (
-  characterId = parseInt(Math.random() * (600 - 1) + 1)
-) => {
-  try {
-    const characetr = await axios
-      .get(`https://rickandmortyapi.com/api/character/${characterId}`)
-      .then((details) => {
-        return details.data;
-      });
-
-    return characetr;
-  } catch (error) {
-    throw Error("Something went wrong");
-  }
-};
-
-const getRandomJoke = async () => {
-  try {
-    const fullJoke = await axios
-      .get("https://official-joke-api.appspot.com/random_joke")
-      .then((msg) => {
-        const { setup, punchline } = msg.data;
-
-        return setup + " " + punchline;
-      });
-
-    return fullJoke;
-  } catch (error) {
-    throw Error("Something went wrong");
-  }
-};
-
-const getCryptoCoin = async (coinSymbol) => {
-  try {
-    let config = {
-      method: "GET",
-      url: `https://api.lunarcrush.com/v2?data=assets&key=${lunaApiKey}&symbol=${coinSymbol}`,
-    };
-
-    const cryptoDetails = await axios(config).then((response) => response.data);
-
-    return cryptoDetails;
-  } catch (error) {
-    throw Error("Something went wrong");
-  }
-};
-
-const generateCryptoMessage = async (cryptoDetails) => {
-  const coinDetails = cryptoDetails.data[0];
-  const {
-    name,
-    symbol,
-    price,
-    percent_change_24h,
-    percent_change_30d,
-    timeSeries,
-  } = coinDetails;
-
-  const graph = await generateGraph(timeSeries);
-
-  return {
-    text: `<b>${name} (${symbol})</b>
-    \n Price Now: ${parseFloat(price).toFixed(2)} USD
-    \n 24 Hour % Change: ${percent_change_24h} ${
-      percent_change_24h > 0 ? "⬆️" : "⬇️"
-    }
-    \n 30 Days % Change: ${percent_change_30d} ${
-      percent_change_30d > 0 ? "⬆️" : "⬇️"
-    }
-    `,
-    image: graph,
-  };
-};
-
-const generateGraph = async (timeSeries) => {
-  const past24hrsPrice = timeSeries.map((series) => {
-    return series.close;
-  });
-
-  const past24hrsTime = timeSeries.map((series) => {
-    const unixTimestamp = series.time;
-
-    const milliseconds = unixTimestamp * 1000;
-
-    const dateObject = new Date(milliseconds);
-
-    return dateObject.toLocaleString("en-MY");
-  });
-
-  const width = 800;
-  const height = 800;
-  const chartCallback = (ChartJS) => {};
-
-  const chartJSNodeCanvas = new ChartJSNodeCanvas({
-    width,
-    height,
-    chartCallback,
-  });
-
-  const configuration = {
-    type: "line",
-    data: {
-      labels: past24hrsTime,
-      datasets: [
-        {
-          label: "Price over 24 Hours",
-          data: past24hrsPrice,
-          borderWidth: 1,
-          borderColor: "#552583",
-        },
-      ],
-      options: {
-        backgroundColor: "#552583",
-        borderColor: "#552583",
-      },
-    },
-  };
-
-  const image = await chartJSNodeCanvas.renderToBuffer(configuration);
-
-  fs.writeFile("img.png", image, (err) => {
-    if (err) return console.error(err);
-    console.log("file saved to ", "img.png");
-  });
-  // const dataUrl = await chartJSNodeCanvas.renderToDataURL(configuration);
-
-  return image;
-};
 
 const sendMessage = (req, res) => {
   const { body: messageBody } = req;
