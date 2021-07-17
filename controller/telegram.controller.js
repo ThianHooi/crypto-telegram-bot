@@ -154,6 +154,23 @@ bot.onText(/\/ethereum$/i, async (msg, match) => {
     });
 });
 
+bot.onText(/cryptonews (.+)/i, async (msg, match) => {
+  const chatId = msg.chat.id;
+  const coinSymbol = match[1];
+
+  await cryptoService
+    .getCryptoNews(coinSymbol ? coinSymbol : "BTC")
+    .then(async (cryptoFeeds) => {
+      bot.sendMessage(chatId, cryptoFeeds, {
+        parse_mode: "HTML",
+      });
+    })
+    .catch((err) => {
+      console.log(err);
+      bot.sendMessage(chatId, "Something went wrong. Try again later.");
+    });
+});
+
 bot.onText(/\/start/, (msg) => {
   bot.sendMessage(msg.chat.id, "Welcome " + msg.from.username);
 });
