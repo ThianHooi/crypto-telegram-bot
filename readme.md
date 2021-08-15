@@ -17,13 +17,13 @@ Commands available:
 
 #### Simple Stats of Requested Coin
 <img src="./examples/btc-stats.jpg" width=300>
-<figcaption><b>Fig.1 - Result of <code>/bitcoin</code>.</b></figcaption>
+<figcaption>Fig.1 - Result of <code>/bitcoin</code>.</figcaption>
 
 <br /> 
 
 #### Top 5 News of Requested Coin
 <img src="./examples/cryptonews-btc.jpg" width=300>
-<figcaption><b>Fig.2 - Result of <code> /cryptonews BTC</code>.</b></figcaption>
+<figcaption>Fig.2 - Result of <code> /cryptonews BTC</code>.</figcaption>
 
 
 ---
